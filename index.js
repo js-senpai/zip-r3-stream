@@ -59,7 +59,7 @@ app.get("/photosession/:userId/:folderId/", async (req, res) => {
     archive.pipe(res);
 
     // Add files to the archive
-    await addFilesToArchive(folderPath, archive);
+    await addFilesToArchive(folderPath, archive, folderPath);
 
     // Finalize the archive
     await archive.finalize();
@@ -71,7 +71,7 @@ app.get("/photosession/:userId/:folderId/", async (req, res) => {
   }
 });
 
-async function addFilesToArchive(folderPath, archive) {
+async function addFilesToArchive(folderPath, archive, rootFolderPath) {
   const listObjects = new ListObjectsV2Command({
     Bucket: process.env.CLOUDFLARE_BUCKET_NAME,
     Prefix: folderPath,
@@ -84,8 +84,8 @@ async function addFilesToArchive(folderPath, archive) {
   // Process files in the current folder
   for (const object of objects.Contents) {
     if (!object.Key.endsWith("/")) {
-      const fileName = object.Key; // Keep full path
-      console.log(`Adding file to archive: ${fileName}`);
+      const relativeFileName = object.Key.slice(rootFolderPath.length); // Use rootFolderPath to get the relative path
+      console.log(`Adding file to archive: ${relativeFileName}`);
 
       const getObject = new GetObjectCommand({
         Bucket: process.env.CLOUDFLARE_BUCKET_NAME,
@@ -95,8 +95,8 @@ async function addFilesToArchive(folderPath, archive) {
       const fileObject = await r2.send(getObject);
 
       if (fileObject && fileObject.Body) {
-        // Append the file to the zip archive with its full path
-        archive.append(fileObject.Body, { name: fileName });
+        // Append the file to the zip archive with its path relative to rootFolderPath
+        archive.append(fileObject.Body, { name: relativeFileName });
       }
     }
   }
@@ -108,7 +108,7 @@ async function addFilesToArchive(folderPath, archive) {
       console.log(`Entering subfolder: ${subFolderPath}`);
 
       // Recursively add files from subfolder
-      await addFilesToArchive(subFolderPath, archive);
+      await addFilesToArchive(subFolderPath, archive, rootFolderPath);
     }
   }
 }
