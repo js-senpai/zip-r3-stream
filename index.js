@@ -81,9 +81,10 @@ async function addFilesToArchive(folderPath, archive) {
   const objects = await r2.send(listObjects);
   console.log(`Found ${objects.Contents.length} items in ${folderPath}`);
 
+  // Process files in the current folder
   for (const object of objects.Contents) {
     if (!object.Key.endsWith("/")) {
-      const fileName = object.Key.slice(folderPath.length);
+      const fileName = object.Key; // Keep full path
       console.log(`Adding file to archive: ${fileName}`);
 
       const getObject = new GetObjectCommand({
@@ -94,7 +95,7 @@ async function addFilesToArchive(folderPath, archive) {
       const fileObject = await r2.send(getObject);
 
       if (fileObject && fileObject.Body) {
-        // Append the file to the zip archive
+        // Append the file to the zip archive with its full path
         archive.append(fileObject.Body, { name: fileName });
       }
     }
